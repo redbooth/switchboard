@@ -1,0 +1,95 @@
+#!/usr/bin/python3 -u
+
+# system libraries
+import argparse
+import socket
+import socketserver
+import sys
+
+# Google Cloud client library
+from google.cloud import translate
+
+def parse_conf(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser(description='Transcribe PCM16 audio data streams.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    server_group = parser.add_argument_group('Server')
+    server_group.add_argument('--server_host', default='0.0.0.0', help='Server host.')
+    server_group.add_argument('--server_port', default=100, type=int, help='Server port.')
+    output_group = parser.add_argument_group('Output')
+    output_group.add_argument('--output_host', required=True, help='Upsteam host to forward feature records.')
+    output_group.add_argument('--output_port', required=True, type=int, help='Upstream port to forward feature records.')
+    audio_group = parser.add_argument_group('Language Parameters')
+    # TODO: make list of language.  also make required
+    audio_group.add_argument('--languages', default='es', help='Target languages.')
+    return parser.parse_args(args)
+
+
+class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
+
+
+class Handler(socketserver.StreamRequestHandler):
+    output_host = 'localhost'
+    output_port = 80
+    rbufsize = 1
+    wbufsize = 1
+
+    def setup(self):
+        # input
+        self.input = self.request
+        self.rfile = self.input.makefile('r', buffering=self.rbufsize, newline='\n')
+        if self.timeout is not None:
+            self.input.settimeout(self.timeout)
+        if self.disable_nagle_algorithm:
+            self.input.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+
+        # output
+        # TODO: use the same socket for both input and output
+        #self.output = socket.create_connection((self.output_host, self.output_port))
+        #self.wfile = self.output.makefile('wb', self.wbufsize)
+
+    def handle(self):
+        # extract headers data from audio stream
+        #stream_header = self.rfile.read(48)
+        #self.write(stream_header)
+
+        # translate text
+        self.client = translate.Client()
+        languages = ['en', 'es', 'fr', 'ru']
+        for text in self.generator():
+            # TODO: translations in parallel
+            translations = {language: self.translate(text, language) for language in languages}
+            # TODO: output json maybe
+            self.write(translations)
+
+    def generator(self):
+        while self.rfile.readable():
+            yield self.rfile.readline()
+
+    def translate(self, text, language):
+        text = text.strip()
+        if language is 'en':
+            return text
+        else:
+            translation = self.client.translate(text, source_language='en', target_language=language)
+            return translation['translatedText']
+
+    def finish(self):
+        #super().finish()
+        self.input.close()
+        #self.output.close()
+
+    def write(self, text):
+        print(text)
+        # self.wfile.write(text.strip() + '\n')
+        # self.wfile.flush()
+
+
+if __name__ == '__main__':
+    conf = parse_conf()
+    Handler.output_host = conf.output_host
+    Handler.output_port = conf.output_port
+    # TODO: get languages from conf
+    Handler.languages = []
+
+    with Server((conf.server_host, conf.server_port), Handler) as server:
+        server.serve_forever()

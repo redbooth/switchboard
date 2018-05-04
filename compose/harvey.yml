@@ -1,0 +1,32 @@
+version: '3.3'
+
+services:
+  snoop:
+    image: "switchboard/snoop"
+    ports:
+      - "8080:80"
+
+  switchboard_raw:
+    image: "switchboard/switchboard"
+    ports:
+      - "10000:80"
+    volumes:
+      - ~/.aws:/root/.aws:ro
+      - ../services/switchboard/etc/raw.yml:/etc/switchboard/conf.yml:ro
+      - /tmp/switchboard:/tmp/switchboard
+
+  scribe:
+    image: "switchboard/scribe"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/root/.google/credentials.json
+    volumes:
+      - ~/.google:/root/.google:ro
+    command: --output_host polyglot --output_port 100 --rate 8000 --msec 100
+
+  polyglot:
+    image: "switchboard/polyglot"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/root/.google/credentials.json
+    volumes:
+      - ~/.google:/root/.google:ro
+    command: --output_host switchboard_text --output_port 100

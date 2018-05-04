@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+
+# system libraries
+import argparse
+import socket
+import socketserver
+import sys
+
+# Google Cloud client library
+from google.cloud import speech
+from google.cloud.speech import enums
+from google.cloud.speech import types
+
+def parse_conf(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser(description='Transcribe PCM16 audio data streams.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    server_group = parser.add_argument_group('Server')
+    server_group.add_argument('--server_host', default='0.0.0.0', help='Server host.')
+    server_group.add_argument('--server_port', default=100, type=int, help='Server port.')
+    output_group = parser.add_argument_group('Output')
+    output_group.add_argument('--output_host', required=True, help='Upsteam host to forward feature records.')
+    output_group.add_argument('--output_port', required=True, type=int, help='Upstream port to forward feature records.')
+    audio_group = parser.add_argument_group('Audio Parameters')
+    audio_group.add_argument('--rate', default=8000, type=int, help='Samples per second of audio stream.')
+    audio_group.add_argument('--msec', default=100, type=int, help='Transcribe audio schunk every period (in milliseconds).')
+    return parser.parse_args(args)
+
+
+class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
+
+
+class Handler(socketserver.StreamRequestHandler):
+    output_host = 'localhost'
+    output_port = 80
+    rate = 8000
+    msec = 100
+    rbufsize = -1
+    wbufsize = 1
+
+    def setup(self):
+        # input
+        self.input = self.request
+        self.rfile = self.input.makefile('rb', self.rbufsize)
+        self.rsize = (int) (self.msec * self.rate / 1000)
+        if self.timeout is not None:
+            self.input.settimeout(self.timeout)
+        if self.disable_nagle_algorithm:
+            self.input.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+
+        # output
+        self.output = socket.create_connection((self.output_host, self.output_port))
+        self.wfile = self.output.makefile('w', buffering=self.wbufsize, newline='\n')
+
+    def handle(self):
+        # extract headers data from audio stream
+        stream_header = self.rfile.read(48)
+        wav_header = self.rfile.read(44)
+
+        # Google Cloud speech-to-text
+        client = speech.SpeechClient()
+        config = types.RecognitionConfig(
+            encoding=enums.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=self.rate,
+            language_code='en-US'
+        )
+        streaming_config = types.StreamingRecognitionConfig(
+            config=config,
+            interim_results=True
+        )
+
+        # transcribe audio content
+        # TODO: sensible handling of following error:
+        # grpc._channel._Rendezvous: <_Rendezvous of RPC that terminated with (StatusCode.INVALID_ARGUMENT, Client GRPC deadline too short. Should be at least: 3 * audio-duration + 5 seconds. Current deadline is: 189.99938998301513 second(s). Required at least: 196 second(s).)>
+        while True:
+            try:
+                requests = (types.StreamingRecognizeRequest(audio_content=content) for content in self.generator())
+                responses = client.streaming_recognize(streaming_config, requests)
+                for response in responses:
+                    if not response.results:
+                        continue
+                    result = response.results[0]
+                    if not result.is_final:
+                        continue
+                    if result.alternatives:
+                        transcript = result.alternatives[0].transcript
+                        self.write(transcript)
+                break
+            except Exception as e:
+                continue
+
+
+    def generator(self):
+        while self.rfile.readable():
+            yield self.rfile.read(self.rsize)
+
+    def finish(self):
+        super().finish()
+        self.input.close()
+        self.output.close()
+
+    def write(self, text):
+        self.wfile.write(text.strip() + '\n')
+        self.wfile.flush()
+
+
+if __name__ == '__main__':
+    conf = parse_conf()
+    Handler.output_host = conf.output_host
+    Handler.output_port = conf.output_port
+    Handler.rate = conf.rate
+    Handler.msec = conf.msec
+
+    with Server((conf.server_host, conf.server_port), Handler) as server:
+        server.serve_forever()

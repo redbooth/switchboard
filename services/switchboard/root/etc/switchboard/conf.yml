@@ -1,0 +1,12 @@
+header:
+  - type: empty
+
+input:
+  - type: tcp
+    port: 100
+
+output:
+  - type: stdout
+
+handler:
+  - type: log

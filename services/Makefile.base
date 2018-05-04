@@ -1,0 +1,28 @@
+REGISTRY=
+IMAGE_NAME=
+IMAGE_TAG=latest
+VERSION=
+NAME=$(notdir $(IMAGE_NAME))
+IMAGE_NAME_TAGGED=$(IMAGE_NAME):$(IMAGE_TAG)
+IMAGE_NAME_VERSION=$(IMAGE_NAME):$(VERSION)
+IMAGE_PUSH=$(REGISTRY)/$(IMAGE_NAME)
+IMAGE_PUSH_TAGGED=$(IMAGE_PUSH):$(IMAGE_TAG)
+IMAGE_PUSH_VERSION=$(IMAGE_PUSH):$(VERSION)
+
+build:
+	docker build -t $(IMAGE_NAME_TAGGED) -t $(IMAGE_NAME_VERSION) .
+
+pull:
+	docker pull $(IMAGE_PUSH_VERSION)
+
+push:
+	aws ecr describe-repositories --repository-names $(IMAGE_NAME) 2>/dev/null || aws ecr create-repository --repository-name $(IMAGE_NAME)
+	docker tag $(IMAGE_NAME_TAGGED) $(IMAGE_PUSH_TAGGED)
+	docker tag $(IMAGE_NAME_VERSION) $(IMAGE_PUSH_VERSION)
+	docker push $(IMAGE_PUSH_TAGGED)
+	docker push $(IMAGE_PUSH_VERSION)
+	docker rmi $(IMAGE_PUSH_TAGGED)
+	docker rmi $(IMAGE_PUSH_VERSION)
+
+run:
+	docker run -d --name $(NAME) $(IMAGE_NAME_VERSION)
