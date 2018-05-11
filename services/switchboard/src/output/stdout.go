@@ -1,7 +1,7 @@
 package output
 
 import (
-	"../header"
+	"github.com/redbooth/switchboard/src/header"
 	"os"
 )
 

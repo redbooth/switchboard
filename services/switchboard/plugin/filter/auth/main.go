@@ -1,8 +1,8 @@
 package main
 
 import (
-	"../../../src/filter"
-	"../../../src/header"
+	"github.com/redbooth/switchboard/src/filter"
+	"github.com/redbooth/switchboard/src/header"
 	"log"
 )
 

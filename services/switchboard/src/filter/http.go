@@ -1,7 +1,7 @@
 package filter
 
 import (
-	"../header"
+	"github.com/redbooth/switchboard/src/header"
 	"bytes"
 	"encoding/binary"
 	"net/http"

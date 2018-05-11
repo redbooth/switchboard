@@ -1,7 +1,7 @@
 package main
 
 import (
-	"../../../src/header"
+	"github.com/redbooth/switchboard/src/header"
 	"log"
 	"encoding/hex"
 )

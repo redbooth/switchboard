@@ -1,7 +1,7 @@
 package output
 
 import (
-	"../header"
+	"github.com/redbooth/switchboard/src/header"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"

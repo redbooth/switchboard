@@ -14,6 +14,7 @@ plugins:
 	done
 
 build:
+	go get -d ./...
 	GOOS=linux GOARCH=amd64 go build -o $(BUILD_FILE) $(SRC_ENTRYPOINT)
 	docker build -t $(IMAGE_NAME_TAGGED) -t $(IMAGE_NAME_VERSION) .
 

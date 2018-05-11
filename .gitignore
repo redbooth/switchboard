@@ -1,1 +1,4 @@
 .idea
+*.iml
+*.so
+services/switchboard/root/usr/bin/switchboard

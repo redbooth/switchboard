@@ -1,13 +1,13 @@
 package conf
 
 import (
-	"../filter"
-	"../handler"
-	"../header"
-	"../input"
-	"../output"
-	"../terminus"
-	"../transformer"
+	"github.com/redbooth/switchboard/src/filter"
+	"github.com/redbooth/switchboard/src/handler"
+	"github.com/redbooth/switchboard/src/header"
+	"github.com/redbooth/switchboard/src/input"
+	"github.com/redbooth/switchboard/src/output"
+	"github.com/redbooth/switchboard/src/terminus"
+	"github.com/redbooth/switchboard/src/transformer"
 	"flag"
 	"fmt"
 	"github.com/mitchellh/mapstructure"

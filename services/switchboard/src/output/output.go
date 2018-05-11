@@ -1,8 +1,8 @@
 package output
 
 import (
-	"../errors"
-	"../header"
+	"github.com/redbooth/switchboard/src/errors"
+	"github.com/redbooth/switchboard/src/header"
 	"io"
 )
 

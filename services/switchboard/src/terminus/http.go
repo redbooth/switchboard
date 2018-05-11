@@ -1,7 +1,7 @@
 package terminus
 
 import (
-	"../header"
+	"github.com/redbooth/switchboard/src/header"
 	"errors"
 	"io/ioutil"
 	"net/http"

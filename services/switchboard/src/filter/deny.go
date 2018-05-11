@@ -1,6 +1,6 @@
 package filter
 
-import "../header"
+import "github.com/redbooth/switchboard/src/header"
 
 type DenyConf struct{}
 

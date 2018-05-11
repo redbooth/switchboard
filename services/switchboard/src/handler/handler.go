@@ -1,6 +1,6 @@
 package handler
 
-import "../errors"
+import "github.com/redbooth/switchboard/src/errors"
 
 type Conf interface{}
 

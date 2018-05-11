@@ -1,7 +1,7 @@
 package terminus
 
 import (
-	"../header"
+	"github.com/redbooth/switchboard/src/header"
 	"fmt"
 	"os"
 )

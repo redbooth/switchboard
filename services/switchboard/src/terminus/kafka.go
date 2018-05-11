@@ -1,7 +1,7 @@
 package terminus
 
 import (
-	"../header"
+	"github.com/redbooth/switchboard/src/header"
 	"github.com/Shopify/sarama"
 	"log"
 )
