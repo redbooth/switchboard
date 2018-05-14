@@ -1,0 +1,44 @@
+header:
+#  - type: plugin
+#    filename: /usr/lib/switchboard_plugin_header_harvey.so
+  - type: unstructured
+    size: 48
+
+input:
+  - type: websocket
+    port: 80
+
+output:
+  - type: file
+    directory: /tmp/switchboard
+    extension: wav
+  - type: tcp
+    address: scribe:100
+  - type: s3
+    profile: switchboard-aws
+    endpoint: s3.us-east-2.amazonaws.com
+    region: us-east-2
+    bucket: harvey.redbooth.com
+    directory: test
+    extension: wav
+#  - type: s3
+#    profile: switchboard-bluemix
+#    endpoint: s3-api.us-geo.objectstorage.softlayer.net
+#    region: us-south
+#    bucket: harvey
+#    directory: test
+#    extension: wav
+#  - type: s3
+#    profile: switchboard-gcs
+#    endpoint: storage.googleapis.com
+#    region: us
+#    bucket: harvey-switchboard-test
+#    directory: test
+#    extension: wav
+
+terminus:
+  - type: file
+    name: /tmp/switchboard/terminus.txt
+
+handler:
+  - type: log

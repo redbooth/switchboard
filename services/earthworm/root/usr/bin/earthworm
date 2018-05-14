@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import socket
+import socketserver
+import sys
+import yaafelib
+
+
+def parse_conf(args=sys.argv[1:]):
+    parser = argparse.ArgumentParser(description='Extract numerical features from audio input streams.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    server_group = parser.add_argument_group('Server')
+    server_group.add_argument('--server_host', default='localhost', help='Server host.')
+    server_group.add_argument('--server_port', default=9999, type=int, help='Server port.')
+    output_group = parser.add_argument_group('Output')
+    output_group.add_argument('--output_host', required=True, help='Upsteam host to forward feature records.')
+    output_group.add_argument('--output_port', required=True, help='Upstream port to forward feature records.')
+    feature_group = parser.add_argument_group('Feature Extraction')
+    feature_group.add_argument('--feature_plan', default='/etc/earthworm/feature.plan', help='Location of YAAFE library feature plan file.')
+    feature_group.add_argument('--msec', default=50, type=int, help='Calculate features every period (in milliseconds).')
+    return parser.parse_args(args)
+
+
+class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
+
+
+class Handler(socketserver.StreamRequestHandler):
+    output_host = 'localhost'
+    output_port = 80
+    plan = yaafelib.FeaturePlan()
+    msec = 50
+    sample_rate = 16000
+    rbufsize = -1
+    wbufsize = 4096
+
+    def setup(self):
+        self.input = self.request
+        self.output = socket.create_connection(self.output_host, self.output_port)
+        if self.timeout is not None:
+            self.input.settimeout(self.timeout)
+        if self.disable_nagle_algorithm:
+            self.input.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        self.rfile = self.input.makefile('rb', self.rbufsize)
+        self.wfile = self.output.makefile('wb', self.wbufsize)
+        self.rsize = (int) (self.msec * self.sample_rate / 1000)
+        self.engine = yaafelib.Engine()
+        self.engine.load(self.plan.getDataFlow())
+        self.engine.reset()
+        self.metadata = self.engine.getInputs()['audio']
+
+    def handle(self):
+        # conversation id will be the first 16 bytes of the input stream
+        id = self.rfile.read(16)
+        # write audio features
+        data, index = self.rfile.read(self.rsize), 0
+        while len(data):
+            self.engine.writeInput('audio', data)
+            self.engine.process()
+            self.write(id, index, self.engine.readAllOutputs())
+            data, index = self.rfile.read(self.rsize), index + 1
+        # final processing
+        self.engine.flush()
+        self.write(id, index, self.engine.readAllOutputs())
+
+    def finish(self):
+        super().finish()
+        self.input.close()
+        self.output.close()
+
+    def write(self, id, index, features):
+        obj = { 'id': id, 'index': index, 'features': features }
+        json.dump(obj, self.wfile, separators=(',', ':'), sort_keys=True)
+
+
+if __name__ == '__main__':
+    conf = parse_conf()
+    Handler.output_host = conf.output_host
+    Handler.output_port = conf.output_port
+    Handler.plan.loadFeaturePlan(conf.feature_plan)
+    Handler.msec = conf.msec
+
+    with Server((conf.server_host, conf.server_port), Handler) as server:
+        server.serve_forever()
